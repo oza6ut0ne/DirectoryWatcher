@@ -1,6 +1,7 @@
 import ctypes.wintypes
 import datetime
 import os
+import re
 import threading
 
 
@@ -78,7 +79,7 @@ def get_handle(path):
         OPEN_EXISTING,
         FILE_FLAG_BACKUP_SEMANTICS,
         None
-        )
+    )
     return handle
 
 
@@ -97,7 +98,7 @@ def parse_event_buffer(buffer, nbytes):
     return results
 
 
-def watch_directory(directory_path, recursive=True):
+def watch_directory(directory_path, recursive=True, match=None, exclude=None):
     handle = get_handle(directory_path)
     event_buffer = ctypes.create_string_buffer(2048)
     nbytes = ctypes.wintypes.DWORD()
@@ -112,7 +113,7 @@ def watch_directory(directory_path, recursive=True):
             ctypes.byref(nbytes),
             None,
             None
-            )
+        )
 
         results = parse_event_buffer(event_buffer, nbytes)
         for action, filename in results:
@@ -125,6 +126,11 @@ def watch_directory(directory_path, recursive=True):
                 logmessages.append(date)
 
             fullpath = os.path.join(directory_path, filename)
+            if match is not None and not re.search(match, fullpath):
+                continue
+            if exclude is not None and re.search(exclude, fullpath):
+                continue
+
             if action == FILE_ACTION_CREATED:
                 logmessages.append('[ + ] Created %s' % fullpath)
             elif action == FILE_ACTION_DELETED:
@@ -160,10 +166,15 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('paths', nargs='*', default=['.'])
     parser.add_argument('-r', '--recursive', action='store_true')
+    parser.add_argument('-m', '--match')
+    parser.add_argument('-e', '--exclude')
     args = parser.parse_args()
 
     for path in args.paths:
         abspath = os.path.abspath(path)
-        monitor_thread = threading.Thread(target=watch_directory, args=(abspath, args.recursive))
+        monitor_thread = threading.Thread(
+            target=watch_directory,
+            args=(abspath, args.recursive, args.match, args.exclude)
+        )
         Logger.log('Spawning monitoring thread for path: %s' % abspath)
         monitor_thread.start()
