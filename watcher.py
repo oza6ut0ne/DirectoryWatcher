@@ -158,9 +158,9 @@ def watch_directory(directory_path, recursive=True, dump=True,
                             logmessages.append('[!!!] Dump failed.')
 
             elif action == FILE_ACTION_RENAMED_OLD_NAME:
-                logmessages[-1] += ('[ > ] ' + ('' if oneline else 'Renamed from: ') + fullpath)
+                logmessages[-1] += ('[ < ] ' + ('' if oneline else 'Renamed from: ') + fullpath)
             elif action == FILE_ACTION_RENAMED_NEW_NAME:
-                logmessages[-1] += ('[ < ] ' + ('' if oneline else 'Renamed to: ') + fullpath)
+                logmessages[-1] += ('[ > ] ' + ('' if oneline else 'Renamed to: ') + fullpath)
             else:
                 logmessages[-1] += ('[???] ' + ('' if oneline else 'Unknown: ') + fullpath)
 
