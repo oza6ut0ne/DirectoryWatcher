@@ -98,7 +98,8 @@ def parse_event_buffer(buffer, nbytes):
     return results
 
 
-def watch_directory(directory_path, recursive=True, dump=True, match=None, exclude=None):
+def watch_directory(directory_path, recursive=True, dump=True,
+                    oneline=False, match=None, exclude=None):
     handle = get_handle(directory_path)
     event_buffer = ctypes.create_string_buffer(2048)
     nbytes = ctypes.wintypes.DWORD()
@@ -120,10 +121,11 @@ def watch_directory(directory_path, recursive=True, dump=True, match=None, exclu
             now = datetime.datetime.now()
             date = now.strftime('[%Y/%m/%d %X]')
 
-            logmessages = []
-            if action != FILE_ACTION_RENAMED_NEW_NAME:
-                logmessages.append('')
-                logmessages.append(date)
+            logmessages = ['']
+            if oneline:
+                logmessages[-1] += date
+            elif action != FILE_ACTION_RENAMED_NEW_NAME:
+                logmessages[-1] += ('\n' + date + '\n')
 
             fullpath = os.path.join(directory_path, filename)
             if match is not None and not re.search(match, fullpath):
@@ -132,32 +134,35 @@ def watch_directory(directory_path, recursive=True, dump=True, match=None, exclu
                 continue
 
             if action == FILE_ACTION_CREATED:
-                logmessages.append('[ + ] Created %s' % fullpath)
+                logmessages[-1] += ('[ + ] ' + ('' if oneline else 'Created ') + fullpath)
             elif action == FILE_ACTION_DELETED:
-                logmessages.append('[ - ] Deleted %s' % fullpath)
+                logmessages[-1] += ('[ - ] ' + ('' if oneline else 'Deleted ') + fullpath)
             elif action == FILE_ACTION_MODIFIED:
                 if os.path.isdir(fullpath):
                     continue
-                logmessages.append('[ * ] Modified %s' % fullpath)
+                logmessages[-1] += ('[ * ] ' + ('' if oneline else 'Modified ') + fullpath)
 
                 if dump:
-                    logmessages.append('[vvv] Dumping contents...')
+                    if not oneline:
+                        logmessages.append('[vvv] Dumping contents...')
                     try:
                         f = open(fullpath, "rb")
                         contents = f.read()
                         f.close()
                         logmessages.append(contents.decode('sjis'))
-                        logmessages.append('[^^^] Dump complete.')
+                        if not oneline:
+                            logmessages.append('[^^^] Dump complete.')
                     except Exception as e:
                         logmessages.append('[!!!] <%s> %s' % (e.__class__.__name__, e))
-                        logmessages.append('[!!!] Dump failed.')
+                        if not oneline:
+                            logmessages.append('[!!!] Dump failed.')
 
             elif action == FILE_ACTION_RENAMED_OLD_NAME:
-                logmessages.append('[ > ] Renamed from: %s' % fullpath)
+                logmessages[-1] += ('[ > ] ' + ('' if oneline else 'Renamed from: ') + fullpath)
             elif action == FILE_ACTION_RENAMED_NEW_NAME:
-                logmessages.append('[ < ] Renamed to: %s' % fullpath)
+                logmessages[-1] += ('[ < ] ' + ('' if oneline else 'Renamed to: ') + fullpath)
             else:
-                logmessages.append('[???] Unknown: %s' % fullpath)
+                logmessages[-1] += ('[???] ' + ('' if oneline else 'Unknown: ') + fullpath)
 
             Logger.log('\n'.join(logmessages), flush=True)
 
@@ -168,6 +173,7 @@ if __name__ == '__main__':
     parser.add_argument('paths', nargs='*', default=['.'])
     parser.add_argument('-r', '--recursive', action='store_true')
     parser.add_argument('-d', '--dump', action='store_true')
+    parser.add_argument('-o', '--oneline', action='store_true')
     parser.add_argument('-m', '--match')
     parser.add_argument('-e', '--exclude')
     args = parser.parse_args()
@@ -176,7 +182,7 @@ if __name__ == '__main__':
         abspath = os.path.abspath(path)
         monitor_thread = threading.Thread(
             target=watch_directory,
-            args=(abspath, args.recursive, args.dump, args.match, args.exclude)
+            args=(abspath, args.recursive, args.dump, args.oneline, args.match, args.exclude)
         )
         Logger.log('Spawning monitoring thread for path: %s' % abspath)
         monitor_thread.start()
