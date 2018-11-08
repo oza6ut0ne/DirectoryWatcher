@@ -182,7 +182,14 @@ if __name__ == '__main__':
         abspath = os.path.abspath(path)
         monitor_thread = threading.Thread(
             target=watch_directory,
-            args=(abspath, args.recursive, args.dump, args.oneline, args.match, args.exclude)
+            args=(abspath, args.recursive, args.dump, args.oneline, args.match, args.exclude),
+            daemon=True
         )
         Logger.log('Spawning monitoring thread for path: %s' % abspath)
         monitor_thread.start()
+        while monitor_thread.is_alive():
+            try:
+                monitor_thread.join(timeout=1)
+            except KeyboardInterrupt:
+                import sys
+                sys.exit()
