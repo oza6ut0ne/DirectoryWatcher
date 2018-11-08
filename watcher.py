@@ -1,9 +1,22 @@
 import ctypes.wintypes
+from datetime import datetime
+from logging import getLogger, INFO, Formatter, StreamHandler, FileHandler
 import os
 import re
 import threading
 
-from logging import getLogger, INFO, Formatter, StreamHandler, FileHandler
+LOG_DIR = 'log'
+LOG_FILE_NAME = LOG_DIR + os.sep + datetime.now().strftime('%F_%H-%M-%S.log')
+LOG_FILE_PATH = (os.path.dirname(os.path.abspath(__file__))
+                 + os.sep
+                 + LOG_FILE_NAME).casefold()
+
+if os.path.exists(LOG_DIR):
+    if os.path.isfile(LOG_DIR):
+        raise RuntimeError('cannot create directory "log"')
+else:
+    os.mkdir(LOG_DIR)
+
 logger = getLogger(__name__)
 logger.setLevel(INFO)
 formatter = Formatter(fmt='[%(asctime)s.%(msecs)03d]%(message)s',
@@ -14,7 +27,7 @@ stream_handler.setFormatter(formatter)
 stream_handler.setLevel(INFO)
 logger.addHandler(stream_handler)
 
-file_handler = FileHandler('log.txt')
+file_handler = FileHandler(LOG_FILE_NAME)
 file_handler.setFormatter(formatter)
 file_handler.setLevel(INFO)
 logger.addHandler(file_handler)
@@ -114,6 +127,8 @@ def watch_directory(directory_path, recursive=True, dump=True,
         results = parse_event_buffer(event_buffer, nbytes)
         for action, filename in results:
             fullpath = os.path.join(directory_path, filename)
+            if fullpath.casefold() == LOG_FILE_PATH:
+                continue
             if match is not None and not re.search(match, fullpath):
                 continue
             if exclude is not None and re.search(exclude, fullpath):
